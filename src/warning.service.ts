@@ -51,20 +51,32 @@ export class WarningService {
           const foundDisabled = await this.studentDisabledModel.findOne({
             projectId: schedule.projectId,
           });
-          if (foundDisabled) {
-            const studentIds = [...foundDisabled.studentsDisabled];
-            if (!studentIds.includes(studentSchedule.studentId)) {
-              studentIds.push(studentSchedule.studentId);
-              foundDisabled.studentsDisabled = studentIds;
-              await foundDisabled.save();
-            }
-          } else {
-            const studentId = studentSchedule.studentId;
-            const newDisabled = new this.studentDisabledModel({
-              projectId: schedule.projectId,
-              studentsDisabled: [studentId],
-            });
-            await newDisabled.save();
+          const cronJobName = `${studentSchedule.studentId}-${schedule.projectId}-${totalLeaveDate}-blocked`;
+          try {
+            this.schedulerRegistry.getCronJob(cronJobName);
+          } catch {
+            const job = new CronJob(
+              moment().add(2, 'seconds').toDate(),
+              async () => {
+                if (foundDisabled) {
+                  const studentIds = [...foundDisabled.studentsDisabled];
+                  if (!studentIds.includes(studentSchedule.studentId)) {
+                    studentIds.push(studentSchedule.studentId);
+                    foundDisabled.studentsDisabled = studentIds;
+                    await foundDisabled.save();
+                  }
+                } else {
+                  const studentId = studentSchedule.studentId;
+                  const newDisabled = new this.studentDisabledModel({
+                    projectId: schedule.projectId,
+                    studentsDisabled: [studentId],
+                  });
+                  await newDisabled.save();
+                }
+              },
+            );
+            this.schedulerRegistry.addCronJob(cronJobName, job);
+            job.start();
           }
         } else if (totalLeaveDate >= 2) {
           const studentId = studentSchedule.studentId;
@@ -76,7 +88,7 @@ export class WarningService {
             this.schedulerRegistry.getCronJob(cronJobName);
           } catch {
             const job = new CronJob(
-              moment().add(10, 'seconds').toDate(),
+              moment().add(2, 'seconds').toDate(),
               async () => {
                 console.log('run email send: ' + user.email);
                 await this.mailService.sendMail({
