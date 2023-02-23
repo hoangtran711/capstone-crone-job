@@ -39,7 +39,7 @@ export class WarningService {
         let totalLeaveDate = 0;
         for (const time of schedule.times) {
           if (
-            moment().isBefore(moment(time.date, 'dddd, MMMM Do YYYY, h:m:s'))
+            moment().isAfter(moment(time.date, 'dddd, MMMM Do YYYY, h:m:s'))
           ) {
             totalLeaveDate++;
           }
