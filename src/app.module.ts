@@ -16,11 +16,16 @@ import {
 import { MailerModule } from '@nestjs-modules/mailer';
 import { join } from 'path';
 import { Project, ProjectSchema, User, UserSchema } from './schemas';
-import { WarningService } from 'warning.service';
 import {
   StudentDisabled,
   StudentDisabledSchema,
 } from '@schemas/student-disabled.schema';
+import { StudentJoin, StudentJoinSchema } from '@schemas/student-join.schema';
+import {
+  ProjectSchedule,
+  ProjectScheduleSchema,
+} from '@schemas/project-schedule.schema';
+import { WarningService } from 'warning.service';
 
 @Module({
   imports: [
@@ -29,6 +34,7 @@ import {
     MongooseModule.forFeature([
       { name: StudentSchedules.name, schema: StudentSchedulesSchema },
     ]),
+    MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
     MongooseModule.forFeature([
       { name: EmailAttendance.name, schema: EmailAttendanceSchema },
     ]),
@@ -37,6 +43,12 @@ import {
     ]),
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
+    MongooseModule.forFeature([
+      { name: StudentJoin.name, schema: StudentJoinSchema },
+    ]),
+    MongooseModule.forFeature([
+      { name: ProjectSchedule.name, schema: ProjectScheduleSchema },
+    ]),
     MailerModule.forRoot({
       transport: {
         host: 'smtp.sendgrid.net',

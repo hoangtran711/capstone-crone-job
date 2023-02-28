@@ -6909,6 +6909,11 @@ raw-body@2.5.2, raw-body@^2.2.0:
     iconv-lite "0.4.24"
     unpipe "1.0.0"
 
+react-google-map-picker@^1.2.3:
+  version "1.2.3"
+  resolved "https://registry.yarnpkg.com/react-google-map-picker/-/react-google-map-picker-1.2.3.tgz#bfd4efe1e2a1345a66d3250ed05ed37166fc2f33"
+  integrity sha512-XeIj0Eh0vhNToMTebQQrt5O9fdPRDf4KtG8J22xupH7Pu49J1dP5UuhfCM6VmK2nIv5ECyQUpOT6+gZgGaQhJA==
+
 react-is@^18.0.0:
   version "18.2.0"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.2.0.tgz#199431eeaaa2e09f86427efbb4f1473edb47609b"

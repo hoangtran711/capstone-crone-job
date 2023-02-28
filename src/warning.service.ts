@@ -1,17 +1,18 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Cron, SchedulerRegistry } from '@nestjs/schedule';
+import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
+import {
+  ProjectSchedule,
+  ProjectScheduleDocument,
+} from '@schemas/project-schedule.schema';
 import {
   StudentDisabled,
   StudentDisabledDocument,
 } from '@schemas/student-disabled.schema';
-
-import {
-  StudentSchedules,
-  StudentSchedulesDocument,
-} from '@schemas/student-schedule.schema';
+import { StudentJoin, StudentJoinDocument } from '@schemas/student-join.schema';
 import { CronJob } from 'cron';
+
 import * as moment from 'moment';
 import { Model } from 'mongoose';
 import { Project, ProjectDocument, User, UserDocument } from './schemas';
@@ -19,8 +20,10 @@ import { Project, ProjectDocument, User, UserDocument } from './schemas';
 @Injectable()
 export class WarningService {
   constructor(
-    @InjectModel(StudentSchedules.name)
-    private studentSchedules: Model<StudentSchedulesDocument>,
+    @InjectModel(StudentJoin.name)
+    private studentJoinModel: Model<StudentJoinDocument>,
+    @InjectModel(ProjectSchedule.name)
+    private projectScheduleModel: Model<ProjectScheduleDocument>,
     @InjectModel(StudentDisabled.name)
     private studentDisabledModel: Model<StudentDisabledDocument>,
     @InjectModel(User.name)
@@ -30,28 +33,35 @@ export class WarningService {
     private mailService: MailerService,
     private schedulerRegistry: SchedulerRegistry,
   ) {}
-  @Cron('20 * * * * *')
+  @Cron(CronExpression.EVERY_5_SECONDS)
   async handleCron() {
-    const studentSchedules = await this.studentSchedules.find();
-    for (const studentSchedule of studentSchedules) {
-      const schedules = studentSchedule.schedules;
-      for (const schedule of schedules) {
+    const projectSchedules = await this.projectScheduleModel.find();
+    for (const project of projectSchedules) {
+      const projectId = project.projectId;
+      const students = await this.studentJoinModel.findOne({ projectId });
+      if (!students) continue;
+      for (const student of students.studentsJoined) {
         let totalLeaveDate = 0;
-        for (const time of schedule.times) {
-          if (
-            moment().isAfter(moment(time.date, 'dddd, MMMM Do YYYY, h:m:s'))
-          ) {
+        for (const schedule of project.schedules) {
+          if (moment(new Date(schedule.startTime)).isAfter(moment())) {
+            continue;
+          }
+          let isJoin = true;
+          for (const attendance of schedule.attendanceAt) {
+            if (!attendance.studentJoined.includes(student)) {
+              isJoin = false;
+            }
+          }
+          if (!isJoin) {
             totalLeaveDate++;
           }
-
-          //
         }
         if (totalLeaveDate >= 3) {
           console.log('leave student from project');
           const foundDisabled = await this.studentDisabledModel.findOne({
-            projectId: schedule.projectId,
+            projectId: projectId,
           });
-          const cronJobName = `${studentSchedule.studentId}-${schedule.projectId}-${totalLeaveDate}-blocked`;
+          const cronJobName = `${student}-${projectId}-${totalLeaveDate}-blocked`;
           try {
             this.schedulerRegistry.getCronJob(cronJobName);
           } catch {
@@ -60,15 +70,15 @@ export class WarningService {
               async () => {
                 if (foundDisabled) {
                   const studentIds = [...foundDisabled.studentsDisabled];
-                  if (!studentIds.includes(studentSchedule.studentId)) {
-                    studentIds.push(studentSchedule.studentId);
+                  if (!studentIds.includes(student)) {
+                    studentIds.push(student);
                     foundDisabled.studentsDisabled = studentIds;
                     await foundDisabled.save();
                   }
                 } else {
-                  const studentId = studentSchedule.studentId;
+                  const studentId = student;
                   const newDisabled = new this.studentDisabledModel({
-                    projectId: schedule.projectId,
+                    projectId: projectId,
                     studentsDisabled: [studentId],
                   });
                   await newDisabled.save();
@@ -79,10 +89,8 @@ export class WarningService {
             job.start();
           }
         } else if (totalLeaveDate >= 2) {
-          const studentId = studentSchedule.studentId;
-          const projectId = schedule.projectId;
-          const cronJobName = `${studentSchedule.studentId}-${schedule.projectId}-${totalLeaveDate}-warning`;
-          const user = await this.usersModal.findById(studentId);
+          const cronJobName = `${student}-${projectId}-${totalLeaveDate}-warning`;
+          const user = await this.usersModal.findById(student);
           const project = await this.projectModal.findById(projectId);
           try {
             this.schedulerRegistry.getCronJob(cronJobName);
